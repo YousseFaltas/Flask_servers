@@ -41,7 +41,7 @@ with app.app_context():
         logger.critical("Application cannot start without Cassandra connection.")
         exit(1) # Exit if Cassandra connection fails at startup
 
-@app.route('/players', methods=['POST'])
+@app.route('/', methods=['POST'])
 def create_player():
     """
     API endpoint to create a new player.
@@ -52,19 +52,24 @@ def create_player():
     if not data:
         return jsonify({"error": "Request must be JSON"}), 400
 
-    required_fields = ['name', 'username', 'email', 'age']
+    required_fields = ['id', 'username', 'email', 'age','Gold_trophies','Silver_trophies','Bronze_trophies']
     if not all(field in data for field in required_fields):
         return jsonify({"error": "Missing required fields. Ensure name, username, email, and age are provided."}), 400
 
-    name = data['name']
+    id = data['id']
     username = data['username']
     email = data['email']
     age = data['age']
-
-    trophies_by_type = data.get('trophies', {})
-    if not isinstance(trophies_by_type, dict):
+    gold_trophies = data.get('Gold_trophies', 0)
+    silver_trophies = data.get('Silver_trophies', 0)
+    bronze_trophies = data.get('Bronze_trophies', 0)
+    if not isinstance(gold_trophies, dict):
         return jsonify({"error": "Trophies must be an object with gold, silver, bronze keys."}), 400
-
+    if not isinstance(silver_trophies, dict):
+        return jsonify({"error": "Trophies must be an object with gold, silver, bronze keys."}), 400
+    if not isinstance(bronze_trophies, dict):
+        return jsonify({"error": "Trophies must be an object with gold, silver, bronze keys."}), 400
+    '''
     valid_trophy_types = {'gold', 'silver', 'bronze'}
     cleaned_trophies = {}
     for trophy_type, count in trophies_by_type.items():
@@ -73,44 +78,35 @@ def create_player():
         if not isinstance(count, int) or count < 0:
             return jsonify({"error": f"Trophy count for '{trophy_type}' must be a non-negative integer."}), 400
         cleaned_trophies[trophy_type] = count
-
+    
     # Ensure all valid trophy types are present, defaulting to 0 if not provided
     for trophy_type in valid_trophy_types:
         if trophy_type not in cleaned_trophies:
             cleaned_trophies[trophy_type] = 0
-
+    '''
     try:
         # Use INSERT ... IF NOT EXISTS for creating new players
-        query = SimpleStatement(
-            """
-            INSERT INTO players (name, username, email, age, trophies_by_type)
-            VALUES (%s, %s, %s, %s, %s)
-            IF NOT EXISTS
-            """
-        )
-        result = session.execute(query, (name, username, email, age, cleaned_trophies))
-
+        query = SimpleStatement("INSERT INTO players (id, username, email, age, ) VALUES (%s, %s, %s, %s, %s) IF NOT EXISTS")
+        result = session.execute(query, (id, username, email, age, gold_trophies, silver_trophies, bronze_trophies))
+        if not result:  # Check if the result is empty
+            return jsonify({"error": "Failed to create player due to an unexpected error."}), 500
         if not result.was_applied:
-            return jsonify({"error": f"Player with username '{username}' already exists."}), 409
+            return jsonify({"error": f"Player with id '{id}' already exists."}), 409
 
-        logger.info(f"Player '{username}' created successfully with trophies: {cleaned_trophies}.")
-        return jsonify({"message": "Player created successfully", "player": {"username": username, "name": name, "trophies": cleaned_trophies}}), 201
+        logger.info(f"Player '{id}' created successfully with trophies: {gold_trophies,silver_trophies,bronze_trophies}.")
+        return jsonify({"message": "Player created successfully", "player": {"id":id,"username": username, "Gold_trophies": gold_trophies, "Silver_trophies":silver_trophies,"Bronze":bronze_trophies}}), 201
     except Exception as e:
-        logger.error(f"Error creating player '{username}': {e}")
+        logger.error(f"Error creating player '{id}': {e}")
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
-@app.route('/players/<string:username>', methods=['GET'])
-def get_player(username):
+@app.route('/<int:id>', methods=['GET'])
+def get_player(id):
     """
     API endpoint to retrieve player data by username, including trophy types.
     """
     try:
-        query = SimpleStatement(
-            """
-            SELECT name, username, email, age, trophies_by_type FROM players WHERE username = %s
-            """
-        )
-        row = session.execute(query, (username,)).one()
+        query = SimpleStatement("SELECT name, username, email, age, Gold_trophies,Silver_trophies, Bronze_trophies FROM players WHERE username = %s")
+        row = session.execute(query, (id,)).one()
 
         if row:
             player_data = {
@@ -118,60 +114,59 @@ def get_player(username):
                 "username": row.username,
                 "email": row.email,
                 "age": row.age,
-                "trophies": row.trophies_by_type if row.trophies_by_type is not None else {}
+                "Gold_trophies": row.Gold_trophies if row.Gold_trophies is not None else {},
+                "Silver_trophies": row.Silver_trophies if row.Silver_trophies is not None else {},
+                "Bronze_trophies": row.Bronze_trophies if row.Bronze_trophies is not None else {}
             }
-            logger.info(f"Retrieved player '{username}'.")
+            logger.info(f"Retrieved player '{id}'.")
             return jsonify(player_data), 200
         else:
-            logger.warning(f"Player '{username}' not found.")
-            return jsonify({"error": f"Player with username '{username}' not found."}), 404
+            logger.warning(f"Player '{id}' not found.")
+            return jsonify({"error": f"Player with username '{id}' not found."}), 404
     except Exception as e:
-        logger.error(f"Error retrieving player '{username}': {e}")
+        logger.error(f"Error retrieving player '{id}': {e}")
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
-@app.route('/players/<string:username>', methods=['PUT'])
-def update_player(username):
-    """
-    API endpoint to update existing player data by fetching, merging, and re-inserting the full record.
-    Expects JSON body with fields to update (e.g., name, email, age).
-    For trophies, provide an object like {"trophies": {"gold": 20, "silver": 5}}.
-    Only provided fields will be updated. Trophy types not provided will remain unchanged.
-    """
+@app.route('/<int:id>', methods=['PUT'])
+def update_player(id):
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request must be JSON"}), 400
 
     try:
         # 1. Fetch the existing player data
-        select_query = SimpleStatement(
-            """
-            SELECT name, username, email, age, trophies_by_type FROM players WHERE username = %s
-            """
-        )
-        existing_row = session.execute(select_query, (username,)).one()
+        select_query = SimpleStatement("SELECT id, username, email, age, Gold_trophies,Silver_trophies, Bronze_trophies FROM players WHERE id = %s")
+        existing_row = session.execute(select_query, (id,)).one()
 
         if not existing_row:
-            logger.warning(f"Attempted to update non-existent player '{username}'.")
-            return jsonify({"error": f"Player with username '{username}' not found for update."}), 404
+            logger.warning(f"Attempted to update non-existent player '{id}'.")
+            return jsonify({"error": f"Player with username '{id}' not found for update."}), 404
 
         # Initialize current_player_data with existing values
         current_player_data = {
-            "name": existing_row.name,
+            "id": existing_row.id,
             "username": existing_row.username,
             "email": existing_row.email,
             "age": existing_row.age,
-            "trophies_by_type": existing_row.trophies_by_type if existing_row.trophies_by_type is not None else {}
+            "Gold_trophies": existing_row.gold_trophies if existing_row.gold_trophies is not None else 0,
+            "Silver_trophies": existing_row.silver_trophies if existing_row.silver_trophies is not None else 0,
+            "Bronze_trophies": existing_row.bronze_trophies if existing_row.bronze_trophies is not None else 0
         }
 
         # 2. Merge incoming data with existing data
-        if 'name' in data:
-            current_player_data['name'] = data['name']
+        if 'username' in data:
+            current_player_data['username'] = data['username']
         if 'email' in data:
             current_player_data['email'] = data['email']
         if 'age' in data:
             current_player_data['age'] = data['age']
-
-        if 'trophies' in data:
+        if 'Gold_trophies' in data:
+            current_player_data['Gold_trophies'] = data['Gold_trophies']
+        if 'Silver_trophies' in data:
+            current_player_data['Silver_trophies'] = data['Silver_trophies']
+        if 'Bronze_trophies' in data:
+            current_player_data['Bronze_trophies'] = data['Bronze_trophies']
+            '''
             trophies_update_data = data['trophies']
             if not isinstance(trophies_update_data, dict):
                 return jsonify({"error": "Trophies update must be an object with gold, silver, bronze keys."}), 400
@@ -183,27 +178,24 @@ def update_player(username):
                 if not isinstance(count, int) or count < 0:
                     return jsonify({"error": f"Trophy count for '{trophy_type}' must be a non-negative integer."}), 400
                 current_player_data['trophies_by_type'][trophy_type] = count
-
+            '''
         # 3. Re-insert the complete, merged record (this overwrites the existing one)
-        insert_query = SimpleStatement(
-            """
-            INSERT INTO players (name, username, email, age, trophies_by_type)
-            VALUES (%s, %s, %s, %s, %s)
-            """
-        )
+        insert_query = SimpleStatement("INSERT INTO players (name, username, email, age, Gold_trophies,Silver_trophies, Bronze_trophies)VALUES (%s, %s, %s, %s, %s)")
         # No IF EXISTS needed here, as INSERT with an existing primary key overwrites
         session.execute(insert_query, (
-            current_player_data['name'],
+            current_player_data['id'],  # Use existing name from fetched data
             current_player_data['username'],
             current_player_data['email'],
             current_player_data['age'],
-            current_player_data['trophies_by_type']
+            current_player_data['Gold_trophies'],
+            current_player_data['Silver_trophies'],
+            current_player_data['Bronze_trophies']
         ))
 
-        logger.info(f"Player '{username}' updated successfully by re-insertion.")
-        return jsonify({"message": "Player updated successfully", "username": username}), 200
+        logger.info(f"Player '{id}' updated successfully by re-insertion.")
+        return jsonify({"message": "Player updated successfully", "username": id}), 200
     except Exception as e:
-        logger.error(f"Error updating player '{username}': {e}")
+        logger.error(f"Error updating player '{id}': {e}")
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 if __name__ == '__main__':
