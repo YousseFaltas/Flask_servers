@@ -1,0 +1,73 @@
+To install Flask, you'll typically use pip, which is the package installer for Python. Here's how you can do it:
+
+Make sure you have Python and pip installed.
+
+Open your terminal or command prompt.
+Check if Python is installed by running:
+Bash
+
+python --version
+or
+Bash
+
+python3 --version
+Check if pip is installed by running:
+Bash
+
+pip --version
+or
+Bash
+
+pip3 --version
+If you don't have Python installed, you'll need to download and install it from the official Python website (https://www.python.org/downloads/). Pip usually comes bundled with Python installations (version 3.4 and later). If you find that pip isn't installed, you might need to install it separately. You can often do this by running a command like python -m ensurepip --default-pip or by downloading get-pip.py and running python get-pip.py.
+Open your terminal or command prompt.
+
+Install Flask using pip.
+
+It's generally a good practice to install Flask within a virtual environment. This helps to isolate the dependencies for your project and avoid conflicts with other Python projects.
+To create a virtual environment (optional but recommended):
+Bash
+
+python -m venv venv
+or
+Bash
+
+python3 -m venv venv
+(This will create a directory named venv in your current directory.)
+Activate the virtual environment:
+On Windows:
+Bash
+
+venv\Scripts\activate
+On macOS and Linux:
+Bash
+
+source venv/bin/activate
+(Once activated, you'll usually see the name of your virtual environment in parentheses at the beginning of your terminal prompt, like (venv) $.)
+Install Flask using pip:
+Bash
+
+pip install Flask
+or if you are using Python 3:
+Bash
+
+pip3 install Flask
+Pip will download and install Flask and its dependencies. You'll see output in your terminal indicating the progress.
+Verify the installation (optional):
+
+You can check if Flask is installed by opening a Python interpreter and trying to import it:
+Python
+
+python
+or
+Python
+
+python3
+Then, in the interpreter:
+Python
+
+import flask
+print(flask.__version__)
+exit()
+This should print the version of Flask that you just installed.
+That's it! You've successfully installed Flask. You can now start building your web applications with it. Remember to keep your virtual environment activated when working on your Flask project.
