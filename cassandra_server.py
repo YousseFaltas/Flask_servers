@@ -99,14 +99,14 @@ def create_player():
         logger.error(f"Error creating player '{id}': {e}")
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
-@app.route('/<int:id>', methods=['GET'])
-def get_player(id):
+@app.route('/', methods=['GET'])
+def get_player():
     """
     API endpoint to retrieve player data by username, including trophy types.
     """
     try:
         query = SimpleStatement("SELECT name, username, email, age, Gold_trophies,Silver_trophies, Bronze_trophies FROM players WHERE username = %s")
-        row = session.execute(query, (id,)).one()
+        row = session.execute(query, (1,)).one()
 
         if row:
             player_data = {
@@ -118,17 +118,17 @@ def get_player(id):
                 "Silver_trophies": row.Silver_trophies if row.Silver_trophies is not None else {},
                 "Bronze_trophies": row.Bronze_trophies if row.Bronze_trophies is not None else {}
             }
-            logger.info(f"Retrieved player '{id}'.")
+            logger.info(f"Retrieved player: 1.")
             return jsonify(player_data), 200
         else:
-            logger.warning(f"Player '{id}' not found.")
-            return jsonify({"error": f"Player with username '{id}' not found."}), 404
+            logger.warning(f"Player: 1 not found.")
+            return jsonify({"error": f"Player with id: 1 not found."}), 404
     except Exception as e:
-        logger.error(f"Error retrieving player '{id}': {e}")
+        logger.error(f"Error retrieving player 1 : {e}")
         return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
-@app.route('/<int:id>', methods=['PUT'])
-def update_player(id):
+@app.route('/', methods=['PUT'])
+def update_player():
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request must be JSON"}), 400
@@ -136,11 +136,11 @@ def update_player(id):
     try:
         # 1. Fetch the existing player data
         select_query = SimpleStatement("SELECT id, username, email, age, Gold_trophies,Silver_trophies, Bronze_trophies FROM players WHERE id = %s")
-        existing_row = session.execute(select_query, (id,)).one()
+        existing_row = session.execute(select_query, (1,)).one()
 
         if not existing_row:
-            logger.warning(f"Attempted to update non-existent player '{id}'.")
-            return jsonify({"error": f"Player with username '{id}' not found for update."}), 404
+            logger.warning(f"Attempted to update non-existent player : 1.")
+            return jsonify({"error": f"Player with id : 1 not found for update."}), 404
 
         # Initialize current_player_data with existing values
         current_player_data = {
